@@ -4,3 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bytemuck = "1.25.2"
+calloop = "0.14.4"
+calloop-wayland-source = "0.4.1"
+slint = { version = "1.17.1", default-features = false, features = [
+  "std",
+  "compat-1-2",
+  "renderer-software",
+] }
+smithay-client-toolkit = { version = "0.21.1", default-features = false, features = [
+  "xkbcommon",
+  "calloop",
+] }
+wayland-client = "0.31.15"
+xkeysym = "0.2.1"
