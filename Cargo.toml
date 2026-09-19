@@ -18,3 +18,9 @@ smithay-client-toolkit = { version = "0.21.1", default-features = false, feature
 ] }
 wayland-client = "0.31.15"
 xkeysym = "0.2.1"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+strip = true
