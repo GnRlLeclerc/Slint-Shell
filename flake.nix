@@ -31,6 +31,15 @@
             filter = cargoOrSlint;
           };
 
+        runtimeLibs = with pkgs; [
+          libGL
+          libxkbcommon
+          wayland
+          fontconfig
+          vulkan-loader
+          stdenv.cc.cc.lib
+        ];
+
         commonArgs = {
           inherit src;
           strictDeps = true;
@@ -38,13 +47,7 @@
             pkg-config
             makeWrapper
           ];
-          buildInputs = with pkgs; [
-            libGL
-            libxkbcommon
-            wayland
-            fontconfig
-            stdenv.cc.cc.lib
-          ];
+          buildInputs = runtimeLibs;
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -52,9 +55,13 @@
           commonArgs
           // {
             inherit cargoArtifacts;
+            # Wrap all output binaries
             postFixup = ''
-              wrapProgram $out/bin/shell \
-                --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath commonArgs.buildInputs}
+              for bin in "$out"/bin/*; do
+                [ -f "$bin" ] || continue
+                wrapProgram "$bin" \
+                  --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}
+              done
             '';
           }
         );
@@ -66,9 +73,9 @@
             slint-lsp
             pkg-config
           ];
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath commonArgs.buildInputs;
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
           PKG_CONFIG_PATH = pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" (
-            commonArgs.buildInputs
+            runtimeLibs
             ++ [
               pkgs.freetype
             ]
