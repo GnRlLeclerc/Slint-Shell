@@ -32,8 +32,9 @@ impl ShellWindowAdapter {
         render: Box<dyn RenderBackend>,
         initial_size: PhysicalSize,
         fallback_size: (u32, u32),
+        scale: i32,
     ) -> Rc<Self> {
-        Rc::new_cyclic(|weak: &Weak<Self>| Self {
+        let adapter = Rc::new_cyclic(|weak: &Weak<Self>| Self {
             window: Window::new(weak.clone()),
             surface,
             qh,
@@ -42,7 +43,18 @@ impl ShellWindowAdapter {
             fallback_size,
             needs_redraw: Cell::new(false),
             frame_pending: Cell::new(false),
-        })
+        });
+        // Apply initial scale factor
+        adapter.apply_scale_factor(scale);
+        adapter
+    }
+
+    /// Notify the surface & slint about a scale factor change
+    fn apply_scale_factor(&self, scale: i32) {
+        self.surface.wl_surface().set_buffer_scale(scale);
+        self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
+            scale_factor: scale as f32,
+        });
     }
 
     /// Configure a new logical size for the surface
@@ -70,10 +82,7 @@ impl ShellWindowAdapter {
     /// Handle scale factor change and physical resizing.
     pub(crate) fn change_scale_factor(&self, new_factor: i32) {
         let logical = self.size.get().to_logical(self.window.scale_factor());
-        self.surface.wl_surface().set_buffer_scale(new_factor);
-        self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
-            scale_factor: new_factor as f32,
-        });
+        self.apply_scale_factor(new_factor);
         let physical = logical.to_physical(new_factor as f32);
         if physical != self.size.get() {
             self.size.set(physical);

@@ -12,6 +12,7 @@ impl CompositorHandler for AppState {
         _: &wl_surface::WlSurface,
         new_factor: i32,
     ) {
+        self.scale = new_factor;
         if let Some(wa) = self.window_adapter() {
             wa.change_scale_factor(new_factor);
         }

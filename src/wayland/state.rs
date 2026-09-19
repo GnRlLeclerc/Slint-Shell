@@ -20,6 +20,7 @@ pub(crate) struct AppState {
     /// Configured logical size
     pub width: u32,
     pub height: u32,
+    pub scale: i32,
     pub exit: bool,
 
     pub keyboard: Option<WlKeyboard>,

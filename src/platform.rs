@@ -7,7 +7,7 @@ use calloop::channel::Event;
 use calloop::channel::Sender;
 use calloop_wayland_source::WaylandSource;
 use slint::platform::{EventLoopProxy, Platform as SlintPlatform, WindowAdapter};
-use slint::{EventLoopError, PhysicalSize, PlatformError};
+use slint::{EventLoopError, LogicalSize, PhysicalSize, PlatformError};
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
@@ -38,6 +38,7 @@ pub struct WaylandPlatform {
     window_adapter: RefCell<Option<Rc<ShellWindowAdapter>>>,
     initial_size: PhysicalSize,
     fallback_size: (u32, u32),
+    scale: i32,
     proxy_sender: Sender<ProxyMessage>,
 }
 
@@ -88,6 +89,7 @@ impl WaylandPlatform {
             window_adapter: std::rc::Weak::new(),
             width: fallback_size.0,
             height: fallback_size.1,
+            scale: 1,
             exit: false,
             keyboard: None,
             loop_handle: loop_handle.clone(),
@@ -106,7 +108,9 @@ impl WaylandPlatform {
                 ))
             })?;
 
-        let initial_size = PhysicalSize::new(app_state.width, app_state.height);
+        let scale = app_state.scale;
+        let initial_size = LogicalSize::new(app_state.width as f32, app_state.height as f32)
+            .to_physical(scale as f32);
         let render_backend =
             SoftwareRenderBackend::new(surface.clone(), qh.clone(), &app_state.shm, initial_size)?;
 
@@ -119,6 +123,7 @@ impl WaylandPlatform {
             window_adapter: RefCell::new(None),
             initial_size,
             fallback_size,
+            scale,
             proxy_sender,
         })
     }
@@ -140,6 +145,7 @@ impl SlintPlatform for WaylandPlatform {
             render_backend,
             self.initial_size,
             self.fallback_size,
+            self.scale,
         );
         self.app_state
             .borrow_mut()
