@@ -7,4 +7,5 @@ Demo:
 
 ```bash
 cargo run --example bar
+cargo run --example window
 ```
