@@ -138,6 +138,8 @@ impl RenderBackend for SoftwareRenderBackend {
         Ok(RenderOutcome::Presented)
     }
 
+    /// Manual resize because the software renderer does not own the surface it renders to,
+    /// and cannot resize it on its own when told to by Slint.
     fn resize(&self, size: PhysicalSize) -> Result<(), PlatformError> {
         if size == self.size.get() {
             return Ok(());

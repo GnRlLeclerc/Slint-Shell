@@ -1,6 +1,6 @@
 //! Window example
 
-use slint_shell::{Options, WindowOptions};
+use slint_shell::{Options, RendererKind, WindowOptions};
 
 slint::slint! {
     export component MainWindow inherits Window {
@@ -28,6 +28,7 @@ fn main() {
         title: "slint-shell demo window",
         app_id: "slint-shell-example-window",
         size: (Some(400), Some(300)),
+        renderer: RendererKind::from_env().expect("bad SLINT_SHELL_RENDERER"),
         ..Default::default()
     }))
     .expect("failed to initialize the Wayland xdg_toplevel backend");

@@ -1,9 +1,20 @@
+#[cfg(not(any(
+    feature = "renderer-software",
+    feature = "renderer-skia",
+    feature = "renderer-femtovg"
+)))]
+compile_error!(
+    "slint-shell needs at least one renderer: enable renderer-software, renderer-skia \
+     (-wgpu) or renderer-femtovg (-wgpu)"
+);
+
 mod platform;
-mod render;
+mod renderers;
 mod surface;
 mod wayland;
 mod window_adapter;
 
+pub use renderers::{Graphics, RENDERER_ENV_VAR, RendererKind};
 pub use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
 pub use smithay_client_toolkit::shell::xdg::window::WindowDecorations;
 
@@ -21,6 +32,7 @@ pub struct LayerShellOptions {
     /// Desired size in logical pixels.
     /// None defaults to anchored sides / compositor preferrence.
     pub size: (Option<u32>, Option<u32>),
+    pub renderer: RendererKind,
 }
 
 impl Default for LayerShellOptions {
@@ -33,6 +45,7 @@ impl Default for LayerShellOptions {
             exclusive_zone: None,
             keyboard_interactivity: KeyboardInteractivity::None,
             size: (Some(256), Some(256)),
+            renderer: RendererKind::default(),
         }
     }
 }
@@ -45,6 +58,7 @@ pub struct WindowOptions {
     /// None defaults to compositor preferrence.
     pub size: (Option<u32>, Option<u32>),
     pub decorations: WindowDecorations,
+    pub renderer: RendererKind,
 }
 
 impl Default for WindowOptions {
@@ -54,6 +68,7 @@ impl Default for WindowOptions {
             app_id: "slint-shell",
             size: (Some(800), Some(600)),
             decorations: WindowDecorations::ServerDefault,
+            renderer: RendererKind::default(),
         }
     }
 }
@@ -62,6 +77,15 @@ impl Default for WindowOptions {
 pub enum Options {
     Layer(LayerShellOptions),
     Window(WindowOptions),
+}
+
+impl Options {
+    pub(crate) fn renderer(&self) -> RendererKind {
+        match self {
+            Options::Layer(options) => options.renderer,
+            Options::Window(options) => options.renderer,
+        }
+    }
 }
 
 /// Set the slint platform to the Wayland backend with the given options.

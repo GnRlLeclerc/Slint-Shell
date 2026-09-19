@@ -18,7 +18,7 @@ use wayland_client::globals::registry_queue_init;
 use wayland_client::{Connection, QueueHandle};
 
 use crate::Options;
-use crate::render::{RenderBackend, SoftwareRenderBackend};
+use crate::renderers::{RenderBackend, new_backend};
 use crate::surface::Surface;
 use crate::wayland::AppState;
 use crate::window_adapter::ShellWindowAdapter;
@@ -60,6 +60,7 @@ impl WaylandPlatform {
         let registry = RegistryState::new(&globals);
 
         let (surface, fallback_size) = Surface::new(&options, &globals, &qh, &compositor)?;
+        let renderer_kind = options.renderer();
         // Initial commit with no buffer to get the first configure event from the compositor
         surface.commit();
 
@@ -100,7 +101,7 @@ impl WaylandPlatform {
             .roundtrip(&mut app_state)
             .map_err(|e| PlatformError::Other(format!("initial Wayland roundtrip failed: {e}")))?;
 
-        WaylandSource::new(connection, event_queue)
+        WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle)
             .map_err(|e| {
                 PlatformError::Other(format!(
@@ -111,15 +112,21 @@ impl WaylandPlatform {
         let scale = app_state.scale;
         let initial_size = LogicalSize::new(app_state.width as f32, app_state.height as f32)
             .to_physical(scale as f32);
-        let render_backend =
-            SoftwareRenderBackend::new(surface.clone(), qh.clone(), &app_state.shm, initial_size)?;
+        let render_backend = new_backend(
+            renderer_kind,
+            surface.clone(),
+            qh.clone(),
+            &connection,
+            &app_state.shm,
+            initial_size,
+        )?;
 
         Ok(Self {
             event_loop: RefCell::new(Some(event_loop)),
             app_state: RefCell::new(Some(app_state)),
             surface,
             qh,
-            render_backend: RefCell::new(Some(Box::new(render_backend))),
+            render_backend: RefCell::new(Some(render_backend)),
             window_adapter: RefCell::new(None),
             initial_size,
             fallback_size,

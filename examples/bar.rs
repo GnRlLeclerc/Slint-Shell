@@ -1,6 +1,6 @@
 //! Top bar example
 
-use slint_shell::{Anchor, Layer, LayerShellOptions, Options};
+use slint_shell::{Anchor, Layer, LayerShellOptions, Options, RendererKind};
 
 slint::slint! {
     export component Bar inherits Window {
@@ -31,6 +31,7 @@ fn main() {
         anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
         size: (None, Some(36)),
         exclusive_zone: Some(36),
+        renderer: RendererKind::from_env().expect("bad SLINT_SHELL_RENDERER"),
         ..Default::default()
     }))
     .expect("failed to initialize the Wayland layer-shell backend");

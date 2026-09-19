@@ -8,11 +8,11 @@ use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_surface::WlSurface;
 
-use crate::render::{RenderBackend, RenderOutcome};
+use crate::renderers::{RenderBackend, RenderOutcome};
 use crate::surface::Surface;
 use crate::wayland::AppState;
 
-/// Window adapter for a single Wayland surface (either `wlr-layer-shell` or `xdg_toplevel`).
+/// Window adapter for a single Wayland surface.
 pub(crate) struct ShellWindowAdapter {
     window: Window,
     surface: Surface,
@@ -87,6 +87,8 @@ impl ShellWindowAdapter {
         if physical != self.size.get() {
             self.size.set(physical);
             let _ = self.render.resize(physical);
+            self.window
+                .dispatch_event(WindowEvent::Resized { size: logical });
         }
     }
 

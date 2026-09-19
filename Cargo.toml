@@ -7,20 +7,48 @@ edition = "2024"
 bytemuck = "1.25.2"
 calloop = "0.14.4"
 calloop-wayland-source = "0.4.1"
+glutin = { version = "0.32.3", default-features = false, features = [
+  "egl",
+  "wayland",
+], optional = true }
+i-slint-renderer-femtovg = { version = "=1.18.0", default-features = false, features = [
+  "opengl",
+], optional = true }
+i-slint-renderer-skia = { version = "=1.18.0", default-features = false, features = [
+  "wayland",
+], optional = true }
+raw-window-handle = { version = "0.6.2", optional = true }
 slint = { version = "1.18", default-features = false, features = [
   "std",
   "compat-1-2",
-  "renderer-software",
 ] }
 smithay-client-toolkit = { version = "0.21.1", default-features = false, features = [
   "xkbcommon",
   "calloop",
 ] }
 wayland-client = "0.31.15"
+wgpu = { version = "30", default-features = false, optional = true }
 xkeysym = "0.2.1"
 
-[profile.release]
-opt-level = 3
-codegen-units = 1
-lto = true
-strip = true
+
+[features]
+default = ["renderer-software"]
+
+renderer-software = ["slint/renderer-software"]
+renderer-skia = [
+  "dep:i-slint-renderer-skia",
+  "dep:raw-window-handle",
+  "wayland-client/system",
+]
+renderer-skia-wgpu = ["renderer-skia", "i-slint-renderer-skia/unstable-wgpu-30"]
+renderer-femtovg = [
+  "dep:i-slint-renderer-femtovg",
+  "dep:glutin",
+  "dep:raw-window-handle",
+  "wayland-client/system",
+]
+renderer-femtovg-wgpu = [
+  "renderer-femtovg",
+  "i-slint-renderer-femtovg/unstable-wgpu-30",
+  "dep:wgpu",
+]
