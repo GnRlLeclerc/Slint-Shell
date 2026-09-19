@@ -5,17 +5,17 @@ use slint::platform::{Renderer, WindowAdapter, WindowEvent};
 use slint::{LogicalSize, PhysicalSize, PlatformError, Window, WindowSize};
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
-use smithay_client_toolkit::shell::wlr_layer::LayerSurface;
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_surface::WlSurface;
 
 use crate::render::{RenderBackend, RenderOutcome};
+use crate::surface::Surface;
 use crate::wayland::AppState;
 
-/// Window adapter for a single `wlr-layer-shell` surface.
-pub(crate) struct LayerWindowAdapter {
+/// Window adapter for a single Wayland surface (either `wlr-layer-shell` or `xdg_toplevel`).
+pub(crate) struct ShellWindowAdapter {
     window: Window,
-    layer: LayerSurface,
+    surface: Surface,
     qh: QueueHandle<AppState>,
     render: Box<dyn RenderBackend>,
     size: Cell<PhysicalSize>,
@@ -25,9 +25,9 @@ pub(crate) struct LayerWindowAdapter {
     frame_pending: Cell<bool>,
 }
 
-impl LayerWindowAdapter {
+impl ShellWindowAdapter {
     pub(crate) fn new(
-        layer: LayerSurface,
+        surface: Surface,
         qh: QueueHandle<AppState>,
         render: Box<dyn RenderBackend>,
         initial_size: PhysicalSize,
@@ -35,7 +35,7 @@ impl LayerWindowAdapter {
     ) -> Rc<Self> {
         Rc::new_cyclic(|weak: &Weak<Self>| Self {
             window: Window::new(weak.clone()),
-            layer,
+            surface,
             qh,
             render,
             size: Cell::new(initial_size),
@@ -70,7 +70,7 @@ impl LayerWindowAdapter {
     /// Handle scale factor change and physical resizing.
     pub(crate) fn change_scale_factor(&self, new_factor: i32) {
         let logical = self.size.get().to_logical(self.window.scale_factor());
-        self.layer.wl_surface().set_buffer_scale(new_factor);
+        self.surface.wl_surface().set_buffer_scale(new_factor);
         self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
             scale_factor: new_factor as f32,
         });
@@ -81,8 +81,8 @@ impl LayerWindowAdapter {
         }
     }
 
-    pub(crate) fn layer_wl_surface(&self) -> &WlSurface {
-        self.layer.wl_surface()
+    pub(crate) fn wl_surface(&self) -> &WlSurface {
+        self.surface.wl_surface()
     }
 
     /// Handle rendering after a callback has completed
@@ -112,14 +112,14 @@ impl LayerWindowAdapter {
     /// Recommit the presented buffer to handle redraw requests synchronously
     /// when rendering is not possible (e.g. during component initialization).
     fn defer_redraw(&self) {
-        let surface = self.layer.wl_surface();
+        let surface = self.surface.wl_surface();
         surface.frame(&self.qh, FrameCallbackData(surface.clone()));
-        self.layer.commit();
+        self.surface.commit();
         self.frame_pending.set(true);
     }
 }
 
-impl WindowAdapter for LayerWindowAdapter {
+impl WindowAdapter for ShellWindowAdapter {
     fn window(&self) -> &Window {
         &self.window
     }
@@ -135,8 +135,8 @@ impl WindowAdapter for LayerWindowAdapter {
             self.needs_redraw.set(true);
             self.render_if_needed();
         } else {
-            self.layer.wl_surface().attach(None, 0, 0);
-            self.layer.commit();
+            self.surface.attach(None, 0, 0);
+            self.surface.commit();
         }
         Ok(())
     }
@@ -144,9 +144,22 @@ impl WindowAdapter for LayerWindowAdapter {
     fn set_size(&self, size: WindowSize) {
         let scale = self.window.scale_factor();
         let logical = size.to_logical(scale);
-        self.layer
-            .set_size(logical.width as u32, logical.height as u32);
-        self.layer.commit();
+        match &self.surface {
+            Surface::Layer(layer) => {
+                layer.set_size(logical.width as u32, logical.height as u32);
+                layer.commit();
+            }
+            // Resize directly (wayland windows cannot request a size)
+            Surface::Window(_) => {
+                let physical = logical.to_physical(scale);
+                if physical != self.size.get() {
+                    self.size.set(physical);
+                    let _ = self.render.resize(physical);
+                    self.needs_redraw.set(true);
+                    self.render_if_needed();
+                }
+            }
+        }
     }
 
     /// Safe synchronous redraw (callable during component initialization).

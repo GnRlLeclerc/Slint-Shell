@@ -7,7 +7,7 @@ use smithay_client_toolkit::seat::SeatState;
 use smithay_client_toolkit::shm::Shm;
 use wayland_client::protocol::{wl_keyboard::WlKeyboard, wl_pointer::WlPointer};
 
-use crate::window_adapter::LayerWindowAdapter;
+use crate::window_adapter::ShellWindowAdapter;
 
 /// Shared app state
 pub(crate) struct AppState {
@@ -15,7 +15,7 @@ pub(crate) struct AppState {
     pub seats: SeatState,
     pub outputs: OutputState,
     pub shm: Shm,
-    pub window_adapter: Weak<LayerWindowAdapter>,
+    pub window_adapter: Weak<ShellWindowAdapter>,
 
     /// Configured logical size
     pub width: u32,
@@ -29,7 +29,7 @@ pub(crate) struct AppState {
 }
 
 impl AppState {
-    pub(super) fn window_adapter(&self) -> Option<Rc<LayerWindowAdapter>> {
+    pub(super) fn window_adapter(&self) -> Option<Rc<ShellWindowAdapter>> {
         self.window_adapter.upgrade()
     }
 }

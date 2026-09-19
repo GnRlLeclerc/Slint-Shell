@@ -13,36 +13,36 @@ use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
 use smithay_client_toolkit::seat::SeatState;
 use smithay_client_toolkit::shell::WaylandSurface;
-use smithay_client_toolkit::shell::wlr_layer::{LayerShell, LayerSurface};
 use smithay_client_toolkit::shm::Shm;
 use wayland_client::globals::registry_queue_init;
 use wayland_client::{Connection, QueueHandle};
 
-use crate::LayerShellOptions;
+use crate::Options;
 use crate::render::{RenderBackend, SoftwareRenderBackend};
+use crate::surface::Surface;
 use crate::wayland::AppState;
-use crate::window_adapter::LayerWindowAdapter;
+use crate::window_adapter::ShellWindowAdapter;
 
 enum ProxyMessage {
     Invoke(Box<dyn FnOnce() + Send>),
     Quit,
 }
 
-/// Slint `Platform` implementation for Wayland.
+/// Slint Platform for Wayland.
 pub struct WaylandPlatform {
     event_loop: RefCell<Option<EventLoop<'static, AppState>>>,
     app_state: RefCell<Option<AppState>>,
-    layer: LayerSurface,
+    surface: Surface,
     qh: QueueHandle<AppState>,
     render_backend: RefCell<Option<Box<dyn RenderBackend>>>,
-    window_adapter: RefCell<Option<Rc<LayerWindowAdapter>>>,
+    window_adapter: RefCell<Option<Rc<ShellWindowAdapter>>>,
     initial_size: PhysicalSize,
     fallback_size: (u32, u32),
     proxy_sender: Sender<ProxyMessage>,
 }
 
 impl WaylandPlatform {
-    pub(crate) fn new(options: LayerShellOptions) -> Result<Self, PlatformError> {
+    pub(crate) fn new(options: Options) -> Result<Self, PlatformError> {
         let connection = Connection::connect_to_env().map_err(|e| {
             PlatformError::Other(format!("failed to connect to Wayland display: {e}"))
         })?;
@@ -52,35 +52,15 @@ impl WaylandPlatform {
 
         let compositor = CompositorState::bind(&globals, &qh)
             .map_err(|e| PlatformError::Other(format!("wl_compositor is not available: {e}")))?;
-        let layer_shell = LayerShell::bind(&globals, &qh).map_err(|e| {
-            PlatformError::Other(format!(
-                "wlr-layer-shell is not available on this compositor: {e}"
-            ))
-        })?;
         let shm = Shm::bind(&globals, &qh)
             .map_err(|e| PlatformError::Other(format!("wl_shm is not available: {e}")))?;
         let seats = SeatState::new(&globals, &qh);
         let outputs = OutputState::new(&globals, &qh);
         let registry = RegistryState::new(&globals);
 
-        let surface = compositor.create_surface(&qh);
-        let layer = layer_shell.create_layer_surface(
-            &qh,
-            surface,
-            options.layer,
-            Some(options.namespace),
-            None,
-        );
-        layer.set_anchor(options.anchor);
-        layer.set_keyboard_interactivity(options.keyboard_interactivity);
-        let (top, right, bottom, left) = options.margin;
-        layer.set_margin(top, right, bottom, left);
-        if let Some(zone) = options.exclusive_zone {
-            layer.set_exclusive_zone(zone);
-        }
-        let fallback_size = (options.size.0.unwrap_or(256), options.size.1.unwrap_or(32));
-        layer.set_size(options.size.0.unwrap_or(0), options.size.1.unwrap_or(0));
-        layer.commit();
+        let (surface, fallback_size) = Surface::new(&options, &globals, &qh, &compositor)?;
+        // Initial commit with no buffer to get the first configure event from the compositor
+        surface.commit();
 
         let event_loop: EventLoop<'static, AppState> = EventLoop::try_new()
             .map_err(|e| PlatformError::Other(format!("failed to create the event loop: {e}")))?;
@@ -128,12 +108,12 @@ impl WaylandPlatform {
 
         let initial_size = PhysicalSize::new(app_state.width, app_state.height);
         let render_backend =
-            SoftwareRenderBackend::new(layer.clone(), qh.clone(), &app_state.shm, initial_size)?;
+            SoftwareRenderBackend::new(surface.clone(), qh.clone(), &app_state.shm, initial_size)?;
 
         Ok(Self {
             event_loop: RefCell::new(Some(event_loop)),
             app_state: RefCell::new(Some(app_state)),
-            layer,
+            surface,
             qh,
             render_backend: RefCell::new(Some(Box::new(render_backend))),
             window_adapter: RefCell::new(None),
@@ -154,8 +134,8 @@ impl SlintPlatform for WaylandPlatform {
             .borrow_mut()
             .take()
             .expect("render backend already taken by a previous create_window_adapter() call");
-        let adapter = LayerWindowAdapter::new(
-            self.layer.clone(),
+        let adapter = ShellWindowAdapter::new(
+            self.surface.clone(),
             self.qh.clone(),
             render_backend,
             self.initial_size,

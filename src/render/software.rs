@@ -7,12 +7,12 @@ use slint::platform::software_renderer::{
 use slint::{PhysicalSize, PlatformError, Window};
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
-use smithay_client_toolkit::shell::wlr_layer::LayerSurface;
 use smithay_client_toolkit::shm::Shm;
 use smithay_client_toolkit::shm::slot::{Slot, SlotPool};
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
+use crate::surface::Surface;
 use crate::wayland::AppState;
 
 use super::{RenderBackend, RenderOutcome};
@@ -50,7 +50,7 @@ impl TargetPixel for Argb8888Pixel {
 /// Full rerender for each frame.
 pub(crate) struct SoftwareRenderBackend {
     renderer: SoftwareRenderer,
-    layer: LayerSurface,
+    surface: Surface,
     qh: QueueHandle<AppState>,
     pool: RefCell<SlotPool>,
     slots: RefCell<[Slot; 2]>,
@@ -60,7 +60,7 @@ pub(crate) struct SoftwareRenderBackend {
 
 impl SoftwareRenderBackend {
     pub(crate) fn new(
-        layer: LayerSurface,
+        surface: Surface,
         qh: QueueHandle<AppState>,
         shm: &Shm,
         size: PhysicalSize,
@@ -76,7 +76,7 @@ impl SoftwareRenderBackend {
         ];
         Ok(Self {
             renderer: SoftwareRenderer::new_with_repaint_buffer_type(RepaintBufferType::NewBuffer),
-            layer,
+            surface,
             qh,
             pool: RefCell::new(pool),
             slots: RefCell::new(slots),
@@ -126,7 +126,7 @@ impl RenderBackend for SoftwareRenderBackend {
         drop(pool);
         self.next_slot.set(1 - index);
 
-        let surface = self.layer.wl_surface();
+        let surface = self.surface.wl_surface();
         for (pos, size) in region.iter() {
             surface.damage_buffer(pos.x, pos.y, size.width as i32, size.height as i32);
         }
@@ -134,7 +134,7 @@ impl RenderBackend for SoftwareRenderBackend {
         buffer
             .attach_to(surface)
             .map_err(|e| PlatformError::Other(format!("failed to attach wl_shm buffer: {e}")))?;
-        self.layer.commit();
+        self.surface.commit();
         Ok(RenderOutcome::Presented)
     }
 

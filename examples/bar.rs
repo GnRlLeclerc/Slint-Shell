@@ -1,4 +1,6 @@
-//! Minimal top-anchored bar demonstrating `slint_shell::init()`.
+//! Top bar example
+
+use slint_shell::{Anchor, Layer, LayerShellOptions, Options};
 
 slint::slint! {
     export component Bar inherits Window {
@@ -23,14 +25,14 @@ slint::slint! {
 }
 
 fn main() {
-    slint_shell::init(slint_shell::LayerShellOptions {
+    slint_shell::init(Options::Layer(LayerShellOptions {
         namespace: "slint-shell-example-bar",
-        layer: slint_shell::Layer::Top,
-        anchor: slint_shell::Anchor::TOP | slint_shell::Anchor::LEFT | slint_shell::Anchor::RIGHT,
+        layer: Layer::Top,
+        anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
         size: (None, Some(36)),
         exclusive_zone: Some(36),
         ..Default::default()
-    })
+    }))
     .expect("failed to initialize the Wayland layer-shell backend");
 
     let bar = Bar::new().expect("failed to create the UI");

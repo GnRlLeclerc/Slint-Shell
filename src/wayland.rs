@@ -7,6 +7,7 @@ mod registry;
 mod seat;
 mod shm;
 mod state;
+mod window;
 
 pub(crate) use state::AppState;
 

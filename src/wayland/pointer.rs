@@ -31,7 +31,7 @@ impl PointerHandler for AppState {
         };
 
         for event in events {
-            if event.surface != *wa.layer_wl_surface() {
+            if event.surface != *wa.wl_surface() {
                 continue;
             }
             let position = LogicalPosition::new(event.position.0 as f32, event.position.1 as f32);

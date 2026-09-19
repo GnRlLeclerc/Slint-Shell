@@ -15,7 +15,7 @@ pub(crate) enum RenderOutcome {
 pub(crate) trait RenderBackend {
     fn as_core_renderer(&self) -> &dyn Renderer;
 
-    /// Render the current frame and commit it to the layer surface.
+    /// Render the current frame and commit it to the surface.
     fn render_and_present(&self, window: &Window) -> Result<RenderOutcome, PlatformError>;
 
     fn resize(&self, size: PhysicalSize) -> Result<(), PlatformError>;
